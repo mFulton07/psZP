@@ -13,7 +13,7 @@ def main (bundle_dir):
    
     # Create separate lists of the skycell fits files and reference stars fits files
     # By iterating through the bundle and picking out ".cmf" files for the skycells and ".dat" files for the reference stars
-    all_files = [files for files in os.listdir('{bundle}'.format(bundle=bundle_dir) ) if os.path.isfile(os.path.join('{bundle}'.format(bundle=bundle_dir), files) ) ]
+    all_files = [files for files in os.listdir('Bundles/{bundle}'.format(bundle=bundle_dir) ) if os.path.isfile(os.path.join('Bundles/{bundle}'.format(bundle=bundle_dir), files) ) ]
     skycells_list = [name for name in all_files if '.cmf' in name]
     refstars_list = [name for name in all_files if '.dat' in name]
 
@@ -150,16 +150,16 @@ def main (bundle_dir):
 
 
 
-print('#===============================================================================#')
-print('      Welcome to the Pan-STARRS Difference Images Zeropoint Correction Tool')
+print('#====================================================================================#')
+print('      Welcome to the Zeropoint Corrections Tool for Pan-STARRS Difference Images')
 print(' ')
 mode = False
 while mode is not True:
-    bundle_dir = input('Please enter the name of the data bundle directory: ')
+    bundle_dir = input('Please enter the name of your data bundle: ')
     
     if os.path.isdir('Bundles/'+bundle_dir) == True:
         mode = True
-        main('Bundles/'+bundle_dir)   
+        main(bundle_dir)   
     else:
-        print('Data Bundle not found. Please try again - input is case sensitive...')
+        print('Data bundle not found in the "Bundles" directory. Please try again - input is case sensitive...')
 
