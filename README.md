@@ -44,5 +44,4 @@ Note that psZP can only accept one data bundle at a  time. If you have multiple 
 <br /><br /><br />
 ## Step 5: Check "psZP/Outputs" directory for your offsets
 When finished, psZP will output per nighlty basis:
-* A csv file of the mean and median offsets.
 * A scatter plot of Skycell Object Mag Offset versus True AB Mag.
