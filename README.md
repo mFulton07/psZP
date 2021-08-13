@@ -1,7 +1,7 @@
 # psZP
 ### Please Read the [Zeropoint Corrections Wiki](https://psweb.mp.qub.ac.uk/psat-lv-wiki/index.php/Zeropoint_Corrections_for_Pan-STARRS_difference_images) before using psZP <br />
 
-Welcome to **Zeropoint Corrections Tool for Pan-STARRS Difference Images**. To get started follow the below steps.<br /><br />
+Welcome to the **Zeropoint Corrections Tool for Pan-STARRS Difference Images**. To get started follow the below steps.<br /><br />
 
 ## Step 1: Cloning the psZP repository
 On a terminal, pull down the psZP repo into your desired directory:
@@ -44,4 +44,4 @@ Note that psZP can only accept one data bundle at a  time. If you have multiple 
 <br /><br /><br />
 ## Step 5: Check "psZP/Outputs" directory for your offsets
 When finished, psZP will output per nighlty basis:
-* A scatter plot of Skycell Object Mag Offset versus True AB Mag.
+* A scatter plot of Skycell Object Mag Offset versus True AB Mag. Plot includes labels for the medain and mean offsets.
