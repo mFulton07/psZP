@@ -1,10 +1,7 @@
-#pip install astropy
-#pip install alive_progress
 from astropy.io import fits
 from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 import numpy as np
-import math
 import statistics
 import os
 import re
