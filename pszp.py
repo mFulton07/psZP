@@ -157,9 +157,9 @@ mode = False
 while mode is not True:
     bundle_dir = input('Please enter the name of the data bundle directory: ')
     
-    if os.path.isdir(bundle_dir) == True:
+    if os.path.isdir('Bundles/'+bundle_dir) == True:
         mode = True
-        main(bundle_dir)   
+        main('Bundles/'+bundle_dir)   
     else:
         print('Data Bundle not found. Please try again - input is case sensitive...')
 
