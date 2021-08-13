@@ -1,5 +1,8 @@
 # Apple macOS custom attributes store
-.DS_Store
+*.DS_Store
+
+# VS Code Debugging.
+*.vscode
 
 # Compiled python modules.
 *.pyc
