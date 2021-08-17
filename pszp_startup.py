@@ -100,7 +100,7 @@ def main (bundle_dir):
 
     # Reduce list of mjds to unique binning mjds keyed using the first mjd recorded for each bin
     mjds_list.sort(key=float, reverse=False)
-    binsize_days = 0.25
+    binsize_days = 0.125
     for mjd1 in mjds_list:
         for mjd2 in reversed(mjds_list):
             if 0.0 < abs(mjd1 - mjd2) < binsize_days:
@@ -133,6 +133,7 @@ def main (bundle_dir):
 
         offest_mean = round(statistics.mean(y),3)
         offest_median = round(statistics.median(y),3)
+        offset_time = round(bin_mjd + (binsize_days/2.0),2)
 
         ax.scatter(x, y, s=150, marker='x', color='black', zorder=10)
         
@@ -142,7 +143,7 @@ def main (bundle_dir):
 
         ax.text(18.375, 0.75, 'Mean-offset: {mean}    Median-offset: {median}'.format(mean=offest_mean, median=offest_median), color='black', ha='center', va='center', fontsize=16, bbox=dict(facecolor='grey', alpha=0.5))
 
-        ax.set_title('Difference Image Offsets for {filter}-band'.format(filter=filterband), fontsize=36)
+        ax.set_title('Difference Image Offsets for {filter}-band on MJD={time}'.format(filter=filterband, time=offset_time), fontsize=36)
         ax.set_xlabel('True AB Mag', fontsize=28)
         ax.set_ylabel('Skycell Object Mag Offset', fontsize=28)
 
@@ -151,7 +152,7 @@ def main (bundle_dir):
         ax.tick_params(axis='both', length=6, width=3, labelsize=24)
 
         fig.set_size_inches(20, 10)
-        plt.savefig('{path}/wband_mjd{time}.png'.format(path=sub_directory, time=round(bin_mjd,1)))
+        plt.savefig('{path}/wband_mjd{time}.png'.format(path=sub_directory, time=offset_time))
 
     print('Finished!')
     print('Please check "{output}" for your final offsets.'.format(output=sub_directory))
