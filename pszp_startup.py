@@ -156,6 +156,7 @@ def main (bundle_dir):
 
     print('Finished!')
     print('Please check "{output}" for your final offsets.'.format(output=sub_directory))
+    print(' ')
     
 
     return 0
