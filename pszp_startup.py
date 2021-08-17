@@ -100,7 +100,7 @@ def main (bundle_dir):
 
     # Reduce list of mjds to unique binning mjds keyed using the first mjd recorded for each bin
     mjds_list.sort(key=float, reverse=False)
-    binsize_days = 0.25
+    binsize_days = 0.125
     for mjd1 in mjds_list:
         for mjd2 in reversed(mjds_list):
             if 0.0 < abs(mjd1 - mjd2) < binsize_days:
@@ -133,7 +133,7 @@ def main (bundle_dir):
 
         offest_mean = round(statistics.mean(y),3)
         offest_median = round(statistics.median(y),3)
-        offset_time = round(bin_mjd,2)
+        offset_time = round(bin_mjd + (binsize_days/2.0),2)
 
         ax.scatter(x, y, s=150, marker='x', color='black', zorder=10)
         
