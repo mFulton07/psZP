@@ -130,10 +130,11 @@ def main (bundle_dir):
         fig, ax = plt.subplots()
         x = [offset['CAL.MAG_TRUE'] for offset in crossmatch_objects]
         y = [offset['CAL.MAG_OFFSET'] for offset in crossmatch_objects]
+        mjds = np.unique([offset['FPA.MJD'] for offset in crossmatch_objects])
 
         offest_mean = round(statistics.mean(y),3)
         offest_median = round(statistics.median(y),3)
-        offset_time = round(bin_mjd + (binsize_days/2.0),2)
+        offset_time = round(statistics.mean(mjds),2)
 
         ax.scatter(x, y, s=150, marker='x', color='black', zorder=10)
         
