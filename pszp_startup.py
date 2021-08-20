@@ -130,10 +130,11 @@ def main (bundle_dir):
         fig, ax = plt.subplots()
         x = [offset['CAL.MAG_TRUE'] for offset in crossmatch_objects]
         y = [offset['CAL.MAG_OFFSET'] for offset in crossmatch_objects]
+        t = np.unique([offset['FPA.MJD'] for offset in crossmatch_objects])
 
         offest_mean = round(statistics.mean(y),3)
         offest_median = round(statistics.median(y),3)
-        offset_time = round(bin_mjd + (binsize_days/2.0),2)
+        offset_time = round(statistics.mean(t),2)
 
         ax.scatter(x, y, s=150, marker='x', color='black', zorder=10)
         
@@ -152,7 +153,7 @@ def main (bundle_dir):
         ax.tick_params(axis='both', length=6, width=3, labelsize=24)
 
         fig.set_size_inches(20, 10)
-        plt.savefig('{path}/wband_mjd{time}.png'.format(path=sub_directory, time=offset_time))
+        plt.savefig('{path}/{filter}-{time}.png'.format(path=sub_directory, filter=filterband, time=offset_time))
 
     print('Finished!')
     print('Please check "{output}" for your final offsets.'.format(output=sub_directory))
