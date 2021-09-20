@@ -21,8 +21,7 @@ and install the following packages:
 alive_progress
 astropy
 numpy
-matplotlib 
-statistics
+matplotlib
 ```
 <br /><br />
 ## Step 3: Add your data bundles to the "psZP/Bundles" directory
