@@ -2,7 +2,6 @@ from astropy.io import fits
 from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 import numpy as np
-import statistics
 import os
 import re
 
@@ -84,7 +83,7 @@ def main (bundle_dir):
     
 
     # Check if the skycell objects are at the position of any of the reference stars (match accuracy is at 0.1 arcsec)
-    # Then calculate the MAG_OFFSET between the CAL_PSF_MAG of the objects and MAG of the stars for stars between 16.5 and 20.5 mag (Too bright and we will see saturation effects. Too faint and we will see noise in the CAL_PSF_MAG).
+    # Then calculate the MAG_OFFSET between the CAL_PSF_MAG of the objects and MAG of the stars for stars between 16.5 and 20.5 mag (Too bright and we will see saturation effects, too faint and we will see noise in the CAL_PSF_MAG).
     # And add those that matched to a new crossmatched skycell objects list
     print('Calculating zeropoint offset between skycell objects and reference stars:')
     crossmatch_objects_list = []
@@ -132,9 +131,9 @@ def main (bundle_dir):
         y = [offset['CAL.MAG_OFFSET'] for offset in crossmatch_objects]
         t = np.unique([offset['FPA.MJD'] for offset in crossmatch_objects])
 
-        offest_mean = round(statistics.mean(y),3)
-        offest_median = round(statistics.median(y),3)
-        offset_time = round(statistics.mean(t),2)
+        offest_mean = round(np.nanmean(y),3)
+        offest_median = round(np.nanmedian(y),3)
+        offset_time = round(np.nanmean(t),2)
 
         ax.scatter(x, y, s=150, marker='x', color='black', zorder=10)
         
