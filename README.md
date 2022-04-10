@@ -14,7 +14,7 @@ git clone https://github.com/mFulton07/psZP.git
 psZP requires some non-base python packages to operate.
 Create a new conda environment:
 ```
-conda create --name pszp python=3.7
+conda create --name pszp python=3.7 pip
 ```
 and install the following packages:
 ```
@@ -35,8 +35,8 @@ On a terminal:
 4. follow the psZP prompts provided...
 ```
 conda activate pszp
-cd  #DESIRED_DIRECTORY/psZP#
-python pszp_startup.py
+cd  #DESIRED_DIRECTORY#/psZP
+python pszp.py
 ...
 ```
 Note that psZP can only accept one data bundle at a  time. If you have multiple bundles, simply run psZP multiple times (using a different bundle each time).

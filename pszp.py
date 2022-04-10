@@ -8,7 +8,7 @@ import re
 
 def main (bundle_dir):
    
-    # Create separate lists of the skycell fits files and reference stars fits files
+    # Create separate lists of the skycell fits files and reference stars dat files
     # By iterating through the bundle and picking out ".cmf" files for the skycells and ".dat" files for the reference stars
     full_bundle_dir = 'Bundles/'+bundle_dir
     all_files = [files for files in os.listdir('{bundle}'.format(bundle=full_bundle_dir) ) if os.path.isfile(os.path.join('{bundle}'.format(bundle=full_bundle_dir), files) ) ]
@@ -18,7 +18,7 @@ def main (bundle_dir):
 
     # Create an iterable list of the objects in the skycells
     # By opening up each skycell file one at a time
-    # And extracting the revlant info for each object record
+    # And extracting the relevant info for each psf object
     print('Loading Skycell Objects...')
     skycells_objects_list = []
     mjds_list = []
@@ -31,16 +31,16 @@ def main (bundle_dir):
         hdr = hdul[0].header
         data = hdul[1].data
         mjds_list.append(round(hdr['MJD-OBS'],5))
-        filterband = hdr['HIERARCH FPA.FILTER'].strip('.0')
+        filterband = hdr['HIERARCH FPA.FILTER'].strip('.012')
 
-        # Create a simplifed version of the object record
-        # And add the object to a list containing all skycell objects
+        # Create a simplifed record of the psf object
+        # And add the object to an internal list containing all skycell objects
         for record in range(len(data['CAL_PSF_MAG'])):
 
             object = {
 
-                'PSF.RA':round(data['RA_PSF'][record],5),
-                'PSF.DEC':round(data['DEC_PSF'][record],5),
+                'PSF.RA':data['RA_PSF'][record],
+                'PSF.DEC':data['DEC_PSF'][record],
                 'PSF.CAL_PSF_MAG':float(data['CAL_PSF_MAG'][record]),
                 'PSF.CAL_PSF_MAG_SIG':float(data['CAL_PSF_MAG_SIG'][record]),
                 'FPA.MJD':round(hdr['MJD-OBS'],5),
@@ -53,10 +53,9 @@ def main (bundle_dir):
             }
             skycells_objects_list.append(object)
 
-
     # Create an iterable list of the stars in the reference stars
     # By opening up each reference stars file one at a time
-    # And extracting the revlant info for each star record
+    # And extracting the relevant info for each reference star
     print('Loading Reference Stars...')
     refstars_stars_list = []
     cwd = os.getcwd()
@@ -67,14 +66,14 @@ def main (bundle_dir):
         fits_image_filename = '{dir}/{bundle}/{file}'.format(dir=cwd, bundle=full_bundle_dir, file=refstar)
         data = np.loadtxt(fits_image_filename)
 
-        # Create a simplifed version of the star record
-        # And add the star to a list containing all reference stars
+        # Create a simplifed record of the reference star
+        # And add the reference star to an internal list containing all reference stars
         for record in range(len(data)):
 
             star_rec = data[record]  
             star = {
-                'STAR.RA':round(star_rec[0],5),
-                'STAR.DEC':round(star_rec[1],5),
+                'STAR.RA':star_rec[0],
+                'STAR.DEC':star_rec[1],
                 'STAR.MAG':star_rec[2],
                 'STAR.MAG_ERR':star_rec[3],
                 'STAR.FILTER':star_filter
@@ -82,22 +81,27 @@ def main (bundle_dir):
             refstars_stars_list.append(star)
     
 
-    # Check if the skycell objects are at the position of any of the reference stars (match accuracy is at 0.1 arcsec)
-    # Then calculate the MAG_OFFSET between the CAL_PSF_MAG of the objects and MAG of the stars for stars between 16.5 and 20.5 mag (Too bright and we will see saturation effects, too faint and we will see noise in the CAL_PSF_MAG).
-    # And add those that matched to a new crossmatched skycell objects list
+    # Check if the skycell objects match the position of any of the reference stars (match accuracy is at 0.104 arcsec)
+    # Then calculate the MAG_OFFSET between the CAL_PSF_MAG of the objects and MAG of the stars for reference stars with an apparent magnitude between 16.5 and 20.5 (Too bright and we will see saturation effects, too faint and we will see noise in the CAL_PSF_MAG).
+    # And add those that matched to a new internal crossmatched skycell objects list
     print('Calculating zeropoint offset between skycell objects and reference stars:')
+    arcsec_to_degree = 0.0002777777778
+    match_acc_arcsec = 0.104
     crossmatch_objects_list = []
     with alive_bar(len(skycells_objects_list)) as bar:   
         for object in skycells_objects_list:
             for star in refstars_stars_list:
-                if (object['PSF.RA'] == star['STAR.RA'] and object['PSF.DEC'] == star['STAR.DEC'] and 16.5 <= star['STAR.MAG'] <= 20.5):
-                    object['CAL.MAG_OFFSET'] = object['PSF.CAL_PSF_MAG'] - star['STAR.MAG']
-                    object['CAL.MAG_TRUE'] = star['STAR.MAG']
-                    crossmatch_objects_list.append(object)
+                if (16.495 <= star['STAR.MAG'] <= 20.504):
+                    match_offset_deg = ((star['STAR.RA'] - object['PSF.RA'])**2 + (star['STAR.DEC'] - object['PSF.DEC'])**2)**0.5
+                    match_offset_arcsec = match_offset_deg / arcsec_to_degree
+                    if (match_offset_arcsec <= match_acc_arcsec):
+                        object['CAL.MAG_OFFSET'] = object['PSF.CAL_PSF_MAG'] - star['STAR.MAG']
+                        object['CAL.MAG_TRUE'] = star['STAR.MAG']
+                        crossmatch_objects_list.append(object)
             bar()
 
 
-    # Reduce list of mjds to unique binning mjds keyed using the first mjd recorded for each bin
+    # Create a list of unqiue mjds for grouping crossmatched skycell objects, keyed using the first mjd recorded for each bin
     mjds_list.sort(key=float, reverse=False)
     binsize_days = 0.125
     for mjd1 in mjds_list:
@@ -106,7 +110,7 @@ def main (bundle_dir):
                 mjds_list.remove(mjd2)
 
 
-    # Bin the crossmatched skycell objects on mjd
+    # Group the crossmatched skycell objects on mjd
     nightly_crossmatches = {}
     for bin_mjd in mjds_list:
         temp_list = []
@@ -177,4 +181,3 @@ while mode is not True:
         main(bundle_dir)   
     else:
         print('Data bundle not found in the "Bundles" directory. Please try again - input is case sensitive...')
-
