@@ -37,7 +37,7 @@ On a terminal:
 ```
 conda activate pszp
 cd  #DESIRED_DIRECTORY#/psZP
-python pszp_startup.py
+python pszp.py
 ...
 ```
 Note that psZP can only accept one data bundle at a  time. If you have multiple bundles, simply run psZP multiple times (using a different bundle each time).
