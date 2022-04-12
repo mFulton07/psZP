@@ -43,6 +43,6 @@ python pszp.py
 Note that psZP can only accept one data bundle at a  time. If you have multiple bundles, simply run psZP multiple times (using a different bundle each time).
 <br /><br /><br />
 ## Step 5: Check "psZP/Outputs" directory for your offsets
-When finished, psZP will output per nighlty basis:
+When finished, psZP will output on an image basis:
 * A scatter plot of the Mag Offset versus the True Mag of the reference stars. Plot includes labels for the mean, median and stdev of the offsets.
 * A comma deliminated text file of the skycell objects that had the most extreme offsets.
