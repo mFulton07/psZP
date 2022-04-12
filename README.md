@@ -44,4 +44,5 @@ Note that psZP can only accept one data bundle at a  time. If you have multiple 
 <br /><br /><br />
 ## Step 5: Check "psZP/Outputs" directory for your offsets
 When finished, psZP will output per nighlty basis:
-* A scatter plot of Skycell Object Mag Offset versus True AB Mag. Plot includes labels for the medain and mean offsets.
+* A scatter plot of the Mag Offset versus the True Mag of the reference stars. Plot includes labels for the mean, median and stdev of the offsets.
+* A comma deliminated text file of the skycell objects that had the most extreme offsets.
