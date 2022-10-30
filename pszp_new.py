@@ -10,17 +10,19 @@ import numpy as np
 import pandas as pd
 import requests
 import astropy.units as u
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
+from alive_progress import alive_bar
 
-def PS1catalog(ra,dec,magmin,magmax):
+def PS1catalog(ra,dec):
 
     queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack?'
     queryurl += 'ra='+str(ra)
     queryurl += '&dec='+str(dec)
-    queryurl += '&radius=0.208'
+    queryurl += '&radius=0.164'
     queryurl += '&columns=[raStack,decStack,gPSFMag,rPSFMag,iPSFMag,zPSFMag,yPSFMag,rKronMag]'
-    queryurl += '&nDetections.gte=20&pagesize=25000'
+    queryurl += '&nDetections.gte=25&pagesize=10000'
 
     print('\nQuerying PS1 DR2 Stack for reference stars...\n')
 
@@ -34,16 +36,14 @@ def PS1catalog(ra,dec,magmin,magmax):
         # Star-galaxy separation: star if rPSFmag - rKronMag < 0.1
         star_data = np.array([x[:-1] for x in data if (x[3] - x[7] < 0.1) and x[7] != -999.0])
 
-
-        # Remove stars with magnitudes outside the mag range
+        # Remove stars with magnitudes outside the mag range (magntiude range complements that used in skycell range)
         for star in star_data:
           for idx, mag in enumerate(star[2:6]):
-            if magmax <= mag <= magmin:
+            if 15.5 <= mag <= 20:
               continue
             else:
               star[idx+2] = None
-        
-        
+
         # Below is a bit of a hack to remove duplicates
         catalog = SkyCoord(ra=star_data[:,0]*u.degree, dec=star_data[:,1]*u.degree)
         unique_star_data = []
@@ -91,7 +91,7 @@ def binMjds(epochs):
         for epoch in epochs:
             if abs(epoch[0] - mjd) < binsize:
                 binned_mjd_dets.append(epoch)
-        avr_bin_mjd = statistics.mean([x[0] for x in binned_mjd_dets])
+        avr_bin_mjd = round(statistics.mean([x[0] for x in binned_mjd_dets]),3)
         binned_epochs[avr_bin_mjd] = binned_mjd_dets
             
     return binned_epochs
@@ -138,9 +138,12 @@ def loadSkycellObjects(epochs_skycell_objects):
             # Rejecting object PSFs...
             # Where the calibration failed
             # Where the calibration mag error is less than 3-sigma (mag_err <= 0.3)
+            # Where the calibration mag value is outside of the 16 - 20.5 range (Too bright and we will see saturation effects, too faint and we will see noise)
             if not np.isnan(object['PSF.CAL_PSF_MAG']):
               if object['PSF.INST_PSF_MAG_SIG'] <= 0.3:
-                skycells_objects_list.append(object)
+                if 16 <= object['PSF.CAL_PSF_MAG'] <= 20.5:
+                  skycells_objects_list.append(object)
+
       epochs_skycell_objects[mjdbin][filterbin] = skycells_objects_list
 
   return epochs_skycell_objects
@@ -151,36 +154,45 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
 
   for mjdbin, filterlist in epochs_skycell_objects.items():
     for filterbin, skycellobjects in filterlist.items():
-      for object in skycellobjects:
-        c1 = SkyCoord(ra=object['PSF.RA']*u.degree, dec=object['PSF.DEC']*u.degree)
-        if filterbin == 'g':
-          f=0
-        elif filterbin == 'r':
-          f=1
-        elif filterbin == 'i':
-          f=2
-        elif filterbin == 'z':
-          f=3
-        elif filterbin == 'y':
-          f=4
-        elif filterbin == 'w':
-          f=5
-        for star in refstars[f]:
-          c2 = SkyCoord(ra=star[0]*u.degree, dec=star[1]*u.degree)
-          c1c2_sep = c2.separation(c1) * 3600
-          a = c1c2_sep.value()
-          if c1c2_sep.value() <= 0.1:
-            object['CAL.MAG_OFFSET'] = object['PSF.CAL_PSF_MAG'] - star[2]
-            object['CAL.MAG_TRUE'] = star[2]
-            break
-  return
+
+      if filterbin == 'g':
+        f=0
+      elif filterbin == 'r':
+        f=1
+      elif filterbin == 'i':
+        f=2
+      elif filterbin == 'z':
+        f=3
+      elif filterbin == 'y':
+        f=4
+      elif filterbin == 'w':
+        f=5
+      
+      calibrated_objects_list = []
+      with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin}_{filterbin}: ') as bar:   
+        for object in skycellobjects:
+          for star in refstars[f]:
+            match_offset_deg = ((star[0] - object['PSF.RA'])**2 + (star[1] - object['PSF.DEC'])**2)**0.5
+            if (match_offset_deg*3600 <= 0.1):
+              object['CAL.MAG_OFFSET'] = object['PSF.CAL_PSF_MAG'] - star[2]
+              object['CAL.MAG_TRUE'] = star[2]
+              calibrated_objects_list.append(object)
+              break
+          bar()
+      mag_offsets_list = [x['CAL.MAG_OFFSET'] for x in calibrated_objects_list]
+      mean_clip = np.nanmean(mag_offsets_list)
+      sigma_clip = 3 * np.nanstd(mag_offsets_list)
+      calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
+      epochs_skycell_objects[mjdbin][filterbin] = calibrated_clipped_objects_list
+
+  return epochs_skycell_objects
 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pan-STARRS Zeropoint Correction Tool')
 
-    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', default='2022cmc_z_035_bundle', nargs=1, type=str)
+    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', default='GRB221009A', nargs=1, type=str)
     parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', default=[288.26459,19.77341], nargs=2, type=float)
     parser.add_argument('--verbose', '-v', dest='verbose', action='store_true', help='Turn on verbose mode. (default: Off).')
 
@@ -201,6 +213,7 @@ if __name__ == '__main__':
     # Set up thw working directory
     try:
       os.chdir(os.getcwd() + '/Bundles/' + args.directory)
+      print(f'\nWorking directory: {os.getcwd()}/.\n')
     except:
       sys.exit('\nObject directory invalid! Please make sure your directory exists inside the Bundles directory.\n')
 
@@ -209,16 +222,16 @@ if __name__ == '__main__':
     try:
         coords = np.array([float(i) for i in args.coords])
     except:
-        sys.exit('\nObject coordinates invalid! Please supply via -c RA DEC in degrees.\n')
+        sys.exit('Object coordinates invalid! Please supply via -c RA DEC in degrees.\n')
     if args.verbose and coords[1] > -50:
-        print(f'\nCoordinates found! RA={coords[0]}, DEC={coords[1]}.\n')
+        print(f'Coordinates parsed: RA={coords[0]}, DEC={coords[1]}.\n')
     else:
-        sys.exit('\nObject coordinates invalid! Please supply a DEC greater than -50 degrees.\n')
+        sys.exit('Object coordinates invalid! Please supply a DEC greater than -50 degrees.\n')
       
 
     # Create catalog of Pan-STARRS reference stars using object coordinates
     if not os.path.exists(os.getcwd() + '/ref_stars.dat'):
-      PS1catalog(coords[0],coords[1],21,16)
+      PS1catalog(coords[0],coords[1])
       refcat = pd.read_csv("ref_stars.dat", sep="\t") 
     else:
       print('\nReference star catalog already exists. If you wish to make a new one, delete the current "ref_stars.dat" file and rerun the command.\n')
@@ -271,43 +284,48 @@ if __name__ == '__main__':
 
     # Load in the skycell objects for each of the epochs
     epochs_skycell_objects = loadSkycellObjects(epochs_filtered_binned)
-
-    offsets = calSkycellOffsets(epochs_skycell_objects, [refcat_g, refcat_r, refcat_i, refcat_z, refcat_y, refcat_w])
-
+    print(f'\nSkycell objects loaded.\n')
 
 
-    # Parse the string names of the extensions into extension numbers
-    if args.extn_str in ['2','SPEC_NONSS']: 
-      extension = 2
-      unitName = "adu"
-    elif args.extn_str in ['3','SPEC_SS']: 
-      extension = 3
-      unitName = "adu"
-    elif args.extn_str in ['4','NORMFLUX']: 
-      # Relative flux normalized to 5500A is dimensionless
-      extension = 4
-      unitName = "Normalised"
-    elif args.extn_str in ['5','FLUX']: 
-      extension = 5
-      unitName = "erg/s/cm2/A"
+    # Calculate magnitude offsets between skycell objects and reference stars
+    offset_objects = calSkycellOffsets(epochs_skycell_objects, [refcat_g, refcat_r, refcat_i, refcat_z, refcat_y, refcat_w])
+    print(f'Skycell offsets calculated.\n')
+
     
-if args.verbose:
-  print (args)
+    
 
-# Convert the host redshift into a number if one is provided
-try:
-  host_z = float(args.redshift_str)
-except:
-  host_z = 'none'
+    # Plot offsets
+    print(f'\nPlotting offsets...\n')
+    for mjdbin, filterlist in offset_objects.items():
+      for filterbin, skycellobjects in filterlist.items():
+        
+        # Plot lightcurve comparisons
+        fig, ax = plt.subplots()
+        fig.set_size_inches(11.7, 8.3, forward=True)
+        plt.tight_layout()
+        
+        ax.set_xlim([15.0, 20.5])
+        ax.set_ylim([-0.6, +0.6])
+        ax.set_xlabel('Reference Star Mag', fontsize=24)
+        ax.set_ylabel('Mag Offset [Skycell - Reference]', fontsize=24)
+        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=16)
+        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=24)
 
-# Convert the bin factor into a number if one is provided
-try:
-  bf = float(args.binfactor_str)
-except:
-  bf = 'none'
+        x = [object['CAL.MAG_TRUE'] for object in skycellobjects]
+        y = [object['CAL.MAG_OFFSET'] for object in skycellobjects]
+        ax.scatter(x, y, s=100, marker='x', color='black', zorder=1)
 
-# Convert the bin factor into a number if one is provided
-try:
-  hpx = float(args.hotpixel_str)
-except:
-  hpx = 'none'
+        offest_mean = round(np.nanmean(y),3)
+        offest_median = round(np.nanmedian(y),3)
+        offest_stdev = round(np.nanstd(y),3)
+        
+        ax.text(15.05, 0.03, 'Observed\nFainter', color='r', ha='left', va='bottom', fontsize=16)
+        ax.axhline(linewidth=3, color='r')
+        ax.text(15.05, -0.03, 'Observed\nBrighter', color='r', ha='left', va='top', fontsize=16)
+        ax.text(17.75, 0.55, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='center', fontsize=16, bbox=dict(facecolor='grey', alpha=0.67))
+
+        plt.savefig(f'{curdir}/{mjdbin}_{filterbin}.png', bbox_inches='tight', dpi=600)
+
+        print(f'Saved figure: {curdir}/{mjdbin}_{filterbin}.png.')
+
+    print(f'\nFinished!\n')
