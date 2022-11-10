@@ -38,8 +38,8 @@ def PS1catalog(ra,dec):
 
         # Remove stars with magnitudes outside the mag range (magntiude range complements that used in skycell range)
         for star in star_data:
-          for idx, mag in enumerate(star[2:6]):
-            if 15.5 <= mag <= 20:
+          for idx, mag in enumerate(star[2:]):
+            if 16 <= mag <= 20:
               continue
             else:
               star[idx+2] = None
@@ -138,10 +138,10 @@ def loadSkycellObjects(epochs_skycell_objects):
             # Rejecting object PSFs...
             # Where the calibration failed
             # Where the calibration mag error is less than 3-sigma (mag_err <= 0.3)
-            # Where the calibration mag value is outside of the 16 - 20.5 range (Too bright and we will see saturation effects, too faint and we will see noise)
+            # Where the calibration mag value is outside of the 15.5 - 20.5 range (Too bright and we will see saturation effects, too faint and we will see noise)
             if not np.isnan(object['PSF.CAL_PSF_MAG']):
               if object['PSF.INST_PSF_MAG_SIG'] <= 0.3:
-                if 16 <= object['PSF.CAL_PSF_MAG'] <= 20.5:
+                if 15.5 <= object['PSF.CAL_PSF_MAG'] <= 20.5:
                   skycells_objects_list.append(object)
 
       epochs_skycell_objects[mjdbin][filterbin] = skycells_objects_list
@@ -315,9 +315,9 @@ if __name__ == '__main__':
         y = [object['CAL.MAG_OFFSET'] for object in skycellobjects]
         ax.scatter(x, y, s=100, marker='x', color='black', zorder=1)
 
-        offest_mean = round(np.nanmean(y),3)
-        offest_median = round(np.nanmedian(y),3)
-        offest_stdev = round(np.nanstd(y),3)
+        offest_mean = round(np.nanmean(y),4)
+        offest_median = round(np.nanmedian(y),4)
+        offest_stdev = round(np.nanstd(y),4)
         
         ax.text(15.05, 0.03, 'Observed\nFainter', color='r', ha='left', va='bottom', fontsize=16)
         ax.axhline(linewidth=3, color='r')
