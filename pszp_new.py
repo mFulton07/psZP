@@ -181,7 +181,7 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
           bar()
       mag_offsets_list = [x['CAL.MAG_OFFSET'] for x in calibrated_objects_list]
       mean_clip = np.nanmean(mag_offsets_list)
-      sigma_clip = 5 * np.nanstd(mag_offsets_list)
+      sigma_clip = 4 * np.nanstd(mag_offsets_list)
       calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
       epochs_skycell_objects[mjdbin][filterbin] = calibrated_clipped_objects_list
 
