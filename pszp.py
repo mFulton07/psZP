@@ -200,7 +200,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', type=str)
     parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', nargs=2, type=float)
-    parser.add_argument('--verbose', '-v', dest='verbose', action='store_true', help='Turn on verbose mode. (default: Off).')
 
     args = parser.parse_args()
 
@@ -226,7 +225,7 @@ if __name__ == '__main__':
         coords = np.array([float(i) for i in args.coords])
     except:
         sys.exit('Object coordinates invalid! Please supply via -c RA DEC in degrees.\n')
-    if args.verbose and coords[1] > -30:
+    if coords[1] > -30:
         print(f'Coordinates parsed: RA={coords[0]}, DEC={coords[1]}.\n')
     else:
         sys.exit('Object coordinates invalid! Please supply a DEC greater than -30 degrees.\n')
@@ -287,12 +286,12 @@ if __name__ == '__main__':
 
     # Load in the skycell objects for each of the epochs
     epochs_skycell_objects = loadSkycellObjects(epochs_filtered_binned)
-    print(f'Skycell objects loaded.\n')
+    print(f'Skycell objects loaded. Beginning calibration...\n')
 
 
     # Calculate magnitude offsets between skycell objects and reference stars
     offset_objects, outlier_objects = calSkycellOffsets(epochs_skycell_objects, [refcat_g, refcat_r, refcat_i, refcat_z, refcat_y, refcat_w])
-    print(f'Skycell offsets calculated.\n')
+    print(f'Skycell offsets calibrated.\n')
 
 
     # Plot offsets
