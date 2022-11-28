@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     # Load in the skycell objects for each of the epochs
     epochs_skycell_objects = loadSkycellObjects(epochs_filtered_binned)
-    print(f'Skycell objects loaded. Beginning calibration...\n')
+    print(f'Skycell objects loaded. Beginning calibration(s)...\n')
 
 
     # Calculate magnitude offsets between skycell objects and reference stars
@@ -325,7 +325,6 @@ if __name__ == '__main__':
         ax.text(18.50, 0.55, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='center', fontsize=16, bbox=dict(facecolor='grey', alpha=0.67))
 
         plt.savefig(f'{curdir}/{mjdbin}_{filterbin}.png', bbox_inches='tight', dpi=600)
-
         print(f'Saved figure: {curdir}/{mjdbin}_{filterbin}.png.')
 
     

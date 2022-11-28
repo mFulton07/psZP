@@ -46,7 +46,7 @@ python pszp.py -d MyBundle -c 123.456789 -12.3456789
 ```
 Note that psZP can only accept one data bundle sub-directory at a time.
 <br /><br /><br />
-## Step 5: Check "psZP/Outputs" directory for your offsets
+## Step 5: Check the sub-directory for the results
 When finished, psZP will output:
-* (Always) A scatter plot of the Mag Offset versus the True Mag for all the skycell images in a particualr filter on a particualr night. Plot includes labels for the mean, median and stdev of the offsets.
-* (Sometimes) A comma deliminated text file of the skycell objects that had the most extreme offsets, if there are any outliers.
+* (Always) A scatter plot of the Mag Offset versus the True Mag for all the skycell images in a particualr filter on a particualr night. Figure includes labels for the mean, median and stdev of the offsets plotted.
+* (Sometimes) A comma deliminated text file of the skycell objects that had the most extreme offsets and were rejected from the data before plotting.
