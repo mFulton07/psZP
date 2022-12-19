@@ -16,6 +16,11 @@ from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from alive_progress import alive_bar
 
+plt.rcParams['font.family']='Times New Roman'
+plt.rcParams['figure.figsize']=8,6
+plt.rcParams['figure.autolayout']=True
+plt.rcParams['mathtext.fontset']='dejavuserif' 
+
 def PS1catalog(ra,dec):
 
     queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack?'
@@ -303,26 +308,38 @@ if __name__ == '__main__':
         fig, ax = plt.subplots()
         fig.set_size_inches(11.7, 8.3, forward=True)
         plt.tight_layout()
-        
-        ax.set_xlim([15.0, 22.0])
-        ax.set_ylim([-0.6, +0.6])
-        ax.set_xlabel('Reference Star Mag', fontsize=24)
-        ax.set_ylabel('Mag Offset [Skycell - Reference]', fontsize=24)
-        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=16)
-        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=24)
 
+        # split out the data into xy axes
         x = [object['CAL.MAG_TRUE'] for object in skycellobjects]
         y = [object['CAL.MAG_OFFSET'] for object in skycellobjects]
+
+        # Plot data as a scatter
         ax.scatter(x, y, s=100, marker='x', color='black', zorder=1)
 
+        # calculate statistics for the offsets
         offest_mean = round(np.nanmean(y),4)
         offest_median = round(np.nanmedian(y),4)
         offest_stdev = round(np.nanstd(y),4)
         
-        ax.text(15.05, 0.03, 'Observed\nFainter', color='r', ha='left', va='bottom', fontsize=16)
+        # Set axes boundaries
+        ax.set_xlim([15.0, 22.0])
+        ax.set_xticks(np.arange(16, 21.5, 1))
+        y_upper_axis_lim = round(offest_mean+(4*offest_stdev), 1)
+        y_lower_axis_lim = round(offest_mean-(4*offest_stdev), 1)
+        y_axis_range = y_upper_axis_lim-y_lower_axis_lim
+        y_axis_ticksize = y_axis_range/5
+        ax.set_ylim([y_lower_axis_lim, y_upper_axis_lim + (y_axis_ticksize/4)])
+        ax.set_yticks(np.arange(y_lower_axis_lim + (y_axis_ticksize/2), y_upper_axis_lim + (y_axis_ticksize/2), y_axis_ticksize))
+
+        ax.set_xlabel('Reference Star Magnitude', fontsize=26)
+        ax.set_ylabel('Observed Magnitude Offset [Target - Reference]', fontsize=26)
+        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=24)
+        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=28)
+        
+        ax.text(15.05, +(y_axis_ticksize/3), 'Observed\nFainter', color='r', ha='left', va='center', fontsize=22)
         ax.axhline(linewidth=3, color='r')
-        ax.text(15.05, -0.03, 'Observed\nBrighter', color='r', ha='left', va='top', fontsize=16)
-        ax.text(18.50, 0.55, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='center', fontsize=16, bbox=dict(facecolor='grey', alpha=0.67))
+        ax.text(15.05, -(y_axis_ticksize/3), 'Observed\nBrighter', color='r', ha='left', va='center', fontsize=22)
+        ax.text(18.50, y_upper_axis_lim, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='top', fontsize=22, bbox=dict(facecolor='grey', alpha=0.67))
 
         plt.savefig(f'{curdir}/{mjdbin}_{filterbin}.png', bbox_inches='tight', dpi=600)
         print(f'Saved figure: {curdir}/{mjdbin}_{filterbin}.png.')
