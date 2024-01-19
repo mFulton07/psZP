@@ -25,12 +25,11 @@ astropy
 numpy
 pandas
 matplotlib 
-statistics
 csv
 ```
 <br /><br />
 ## Step 3: Add your data bundles to the "psZP/Bundles" directory
-Your bundles should be in their own sub-directory and contain the _.cmf skycell image_ files. The _.smf image_ files are not required as all the necessary info can be found within the _.cmf image_ files. The _.dat reference stars_ file is also not required as the script will automatically query PS1-DR2 Stack Archive for reference stars. Note that the bundles can be a mix of filters and MJDs.
+Your bundles should be in their own sub-directory and contain the _.cmf skycell image_ files. The _.smf image_ files are not required as all the necessary info can be found within the _.cmf image_ files. The _.dat reference stars_ file is also no longer required as the code will automatically query PS1-DR2 Stack Archive for reference stars in a 10 arcmin (0.164 degrees) radius of the target position. Note that the bundles can be a mix of filters, but they should not be a mix of MJDs. Multiple MJDs should be partitioned into further sub-sub-directories, depending on how you stacked the images and/or flux in the difference photometry.
 <br /><br /><br />
 ## Step 4: Run psZP
 On a terminal:
@@ -41,12 +40,12 @@ Example:
 ```
 conda activate pszp
 cd  #DESIRED_DIRECTORY#/psZP/
-python pszp.py -d MyBundle -c 123.456789 -12.3456789
+python pszp.py -d MyBundle/YYYY-MM-DD -c 123.456789 -12.3456789
 ...
 ```
 Note that psZP can only accept one data bundle sub-directory at a time.
 <br /><br /><br />
 ## Step 5: Check the sub-directory for the results
 When finished, psZP will output:
-* (Always) A scatter plot of the Mag Offset versus the True Mag for all the skycell images in a particualr filter on a particualr night. Figure includes labels for the mean, median and stdev of the offsets plotted.
-* (Sometimes) A comma deliminated text file of the skycell objects that had the most extreme offsets and were rejected from the data before plotting.
+* (Always) A scatter plot of the Mag Offset versus the True Mag for all the skycell images in a particualr filter for a particular MJD. Figure includes labels for the mean, median and stdev of the offsets plotted.
+* (Sometimes) A comma deliminated text file of the skycell objects that had the most extreme offsets (mag difference >0.5 mag) and were rejected from the data before averaging and plotting.

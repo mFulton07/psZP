@@ -1,11 +1,10 @@
 # Minimal demonstration of using AstroPy specutils to read a plot reduced
 # spectra from Liverpool Telescope SPRAT level 2 reduced FITS files
-Version='1.0.0'
+Version='1.1.0'
 
 import sys
 import os
 import argparse
-import statistics
 import numpy as np
 import pandas as pd
 import requests
@@ -23,7 +22,7 @@ plt.rcParams['mathtext.fontset']='dejavuserif'
 
 def PS1catalog(ra,dec):
 
-    queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack?'
+    queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack.json?'
     queryurl += 'ra='+str(ra)
     queryurl += '&dec='+str(dec)
     queryurl += '&radius=0.164'
@@ -31,6 +30,7 @@ def PS1catalog(ra,dec):
     queryurl += '&nDetections.gte=25&pagesize=10000'
 
     print('\nQuerying PS1 DR2 Stack for reference stars...\n')
+    #print(queryurl)
 
     query = requests.get(queryurl)
     results = query.json()
@@ -76,50 +76,24 @@ def PS1catalog(ra,dec):
 
 
 
-def binMjds(epochs):
-
-    # Create a list of the dection mjds
-    binning_mjds = []
-    for epoch in epochs:
-        binning_mjds.append(epoch[0])
-    sorted(binning_mjds)
-
-    # Reduce binning mjds list to unique first occuring mjds, with 0.125 day bins
-    binsize = 0.125
-    unique_binning_mjds = sorted(list(dict.fromkeys(binning_mjds)))
-    for mjd_1 in unique_binning_mjds:
-        for mjd_2 in reversed(unique_binning_mjds):
-            if 0.0 < abs(mjd_1 - mjd_2) < binsize:
-                unique_binning_mjds.remove(mjd_2)
- 
-    # Bin the epochs keyed on the binning mjds
-    binned_epochs = {}
-    for mjd in unique_binning_mjds:
-        binned_mjd_dets = []
-        for epoch in epochs:
-            if abs(epoch[0] - mjd) < binsize:
-                binned_mjd_dets.append(epoch)
-        avr_bin_mjd = round(statistics.mean([x[0] for x in binned_mjd_dets]),3)
-        binned_epochs[avr_bin_mjd] = binned_mjd_dets
-            
-    return binned_epochs
-
-
-
-def binFilters(epochs_binned):
+def binFilters(epochs):
 
   binned_filtered_epochs = {}
-  filtered_epochs = {}
   binning_filters = ['g','r','i','z','y','w']
-  for mjdbin, epochs in epochs_binned.items():
-    for filterbin in binning_filters:
-      skycell_list = []
-      for epoch in epochs:
-        if epoch[1] == filterbin:
-          skycell_list.append(epoch[2])
-      if len(skycell_list) > 0:
-        filtered_epochs[filterbin] = skycell_list
-    binned_filtered_epochs[mjdbin] = filtered_epochs
+
+  for filterband in binning_filters:
+
+    filterband_mjds_list = []
+    filterband_file_list = []
+    for epoch in epochs:
+       if epoch[1] == filterband:
+          filterband_mjds_list.append(epoch[0])
+          filterband_file_list.append(epoch[2])
+
+    if len(filterband_file_list) > 0:
+      mjdbin = round(np.nanmean(filterband_mjds_list),3)
+      filebin = {filterband:filterband_file_list}
+      binned_filtered_epochs[mjdbin] = filebin
 
   return binned_filtered_epochs
 
@@ -160,6 +134,7 @@ def loadSkycellObjects(epochs_skycell_objects):
 
 def calSkycellOffsets(epochs_skycell_objects, refstars):
 
+  epochs_extreme_offsets = {}
   for mjdbin, filterlist in epochs_skycell_objects.items():
     for filterbin, skycellobjects in filterlist.items():
 
@@ -178,7 +153,7 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
       
       calibrated_objects_list = []
       extreme_offsets_outliers_list = []
-      with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin}_{filterbin}: ') as bar:   
+      with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin} {filterbin}-band: ') as bar:   
         for object in skycellobjects:
           for star in refstars[f]:
             match_offset_deg = ((star[0] - object['PSF.RA'])**2 + (star[1] - object['PSF.DEC'])**2)**0.5
@@ -195,8 +170,10 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
       sigma_clip = 4 * np.nanstd(mag_offsets_list)
       calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
       epochs_skycell_objects[mjdbin][filterbin] = calibrated_clipped_objects_list
+      extreme_offsets_key = str(mjdbin) + '_' + str(filterbin) +'_extreme_offsets'
+      epochs_extreme_offsets[extreme_offsets_key] = extreme_offsets_outliers_list
 
-  return epochs_skycell_objects, extreme_offsets_outliers_list
+  return epochs_skycell_objects, epochs_extreme_offsets
 
 
 
@@ -285,18 +262,17 @@ if __name__ == '__main__':
 
     
     # separate the epochs into filter and MJD bins
-    epochs_binned = binMjds(epochs)
-    epochs_filtered_binned = binFilters(epochs_binned)
+    epochs_filter_binned = binFilters(epochs)
 
 
     # Load in the skycell objects for each of the epochs
-    epochs_skycell_objects = loadSkycellObjects(epochs_filtered_binned)
+    epochs_skycell_objects = loadSkycellObjects(epochs_filter_binned)
     print(f'Skycell objects loaded. Beginning calibration(s)...\n')
 
 
     # Calculate magnitude offsets between skycell objects and reference stars
     offset_objects, outlier_objects = calSkycellOffsets(epochs_skycell_objects, [refcat_g, refcat_r, refcat_i, refcat_z, refcat_y, refcat_w])
-    print(f'Skycell offsets calibrated.\n')
+    print(f'\nSkycell offsets calibrated successfully.\n')
 
 
     # Plot offsets
@@ -346,13 +322,16 @@ if __name__ == '__main__':
 
     
     
-        # Also write the more extreme offsets to a text file
-        if len(outlier_objects) > 0:
-          with open(f'{curdir}/{mjdbin}_{filterbin}_extreme_offsets.txt', 'w', newline='') as output_file:
-            keys = outlier_objects[0].keys()
+    # Also write the more extreme offsets to a text file
+    print(' ')
+    if len(outlier_objects) > 0:
+      for dictkey, dictrow in outlier_objects.items():
+        if len(dictrow) > 0:
+          with open(f'{curdir}/{dictkey}.txt', 'w', newline='') as output_file:
+            keys = dictrow[0].keys()
             dict_writer = csv.DictWriter(output_file, keys)
             dict_writer.writeheader()
-            dict_writer.writerows(outlier_objects)
-          print(f'Recorded outlier offsets: {curdir}/{mjdbin}_{filterbin}_extreme_offsets.txt.')
+            dict_writer.writerows(dictrow)
+          print(f'Recorded outlier offsets: {curdir}/{dictkey}.txt.')
 
-    print(f'\nFinished!\n')
+    print(f'\n\nFinished!\n')
