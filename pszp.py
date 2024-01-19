@@ -1,11 +1,10 @@
 # Minimal demonstration of using AstroPy specutils to read a plot reduced
 # spectra from Liverpool Telescope SPRAT level 2 reduced FITS files
-Version='1.0.0'
+Version='1.1.0'
 
 import sys
 import os
 import argparse
-import statistics
 import numpy as np
 import pandas as pd
 import requests
@@ -16,9 +15,14 @@ from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from alive_progress import alive_bar
 
+plt.rcParams['font.family']='Times New Roman'
+plt.rcParams['figure.figsize']=8,6
+plt.rcParams['figure.autolayout']=True
+plt.rcParams['mathtext.fontset']='dejavuserif' 
+
 def PS1catalog(ra,dec):
 
-    queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack?'
+    queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack.json?'
     queryurl += 'ra='+str(ra)
     queryurl += '&dec='+str(dec)
     queryurl += '&radius=0.164'
@@ -26,6 +30,7 @@ def PS1catalog(ra,dec):
     queryurl += '&nDetections.gte=25&pagesize=10000'
 
     print('\nQuerying PS1 DR2 Stack for reference stars...\n')
+    #print(queryurl)
 
     query = requests.get(queryurl)
     results = query.json()
@@ -71,50 +76,24 @@ def PS1catalog(ra,dec):
 
 
 
-def binMjds(epochs):
-
-    # Create a list of the dection mjds
-    binning_mjds = []
-    for epoch in epochs:
-        binning_mjds.append(epoch[0])
-    sorted(binning_mjds)
-
-    # Reduce binning mjds list to unique first occuring mjds, with 0.125 day bins
-    binsize = 0.125
-    unique_binning_mjds = sorted(list(dict.fromkeys(binning_mjds)))
-    for mjd_1 in unique_binning_mjds:
-        for mjd_2 in reversed(unique_binning_mjds):
-            if 0.0 < abs(mjd_1 - mjd_2) < binsize:
-                unique_binning_mjds.remove(mjd_2)
- 
-    # Bin the epochs keyed on the binning mjds
-    binned_epochs = {}
-    for mjd in unique_binning_mjds:
-        binned_mjd_dets = []
-        for epoch in epochs:
-            if abs(epoch[0] - mjd) < binsize:
-                binned_mjd_dets.append(epoch)
-        avr_bin_mjd = round(statistics.mean([x[0] for x in binned_mjd_dets]),3)
-        binned_epochs[avr_bin_mjd] = binned_mjd_dets
-            
-    return binned_epochs
-
-
-
-def binFilters(epochs_binned):
+def binFilters(epochs):
 
   binned_filtered_epochs = {}
-  filtered_epochs = {}
   binning_filters = ['g','r','i','z','y','w']
-  for mjdbin, epochs in epochs_binned.items():
-    for filterbin in binning_filters:
-      skycell_list = []
-      for epoch in epochs:
-        if epoch[1] == filterbin:
-          skycell_list.append(epoch[2])
-      if len(skycell_list) > 0:
-        filtered_epochs[filterbin] = skycell_list
-    binned_filtered_epochs[mjdbin] = filtered_epochs
+
+  for filterband in binning_filters:
+
+    filterband_mjds_list = []
+    filterband_file_list = []
+    for epoch in epochs:
+       if epoch[1] == filterband:
+          filterband_mjds_list.append(epoch[0])
+          filterband_file_list.append(epoch[2])
+
+    if len(filterband_file_list) > 0:
+      mjdbin = round(np.nanmean(filterband_mjds_list),3)
+      filebin = {filterband:filterband_file_list}
+      binned_filtered_epochs[mjdbin] = filebin
 
   return binned_filtered_epochs
 
@@ -155,6 +134,7 @@ def loadSkycellObjects(epochs_skycell_objects):
 
 def calSkycellOffsets(epochs_skycell_objects, refstars):
 
+  epochs_extreme_offsets = {}
   for mjdbin, filterlist in epochs_skycell_objects.items():
     for filterbin, skycellobjects in filterlist.items():
 
@@ -173,7 +153,7 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
       
       calibrated_objects_list = []
       extreme_offsets_outliers_list = []
-      with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin}_{filterbin}: ') as bar:   
+      with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin} {filterbin}-band: ') as bar:   
         for object in skycellobjects:
           for star in refstars[f]:
             match_offset_deg = ((star[0] - object['PSF.RA'])**2 + (star[1] - object['PSF.DEC'])**2)**0.5
@@ -190,8 +170,10 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
       sigma_clip = 4 * np.nanstd(mag_offsets_list)
       calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
       epochs_skycell_objects[mjdbin][filterbin] = calibrated_clipped_objects_list
+      extreme_offsets_key = str(mjdbin) + '_' + str(filterbin) +'_extreme_offsets'
+      epochs_extreme_offsets[extreme_offsets_key] = extreme_offsets_outliers_list
 
-  return epochs_skycell_objects, extreme_offsets_outliers_list
+  return epochs_skycell_objects, epochs_extreme_offsets
 
 
 
@@ -280,18 +262,17 @@ if __name__ == '__main__':
 
     
     # separate the epochs into filter and MJD bins
-    epochs_binned = binMjds(epochs)
-    epochs_filtered_binned = binFilters(epochs_binned)
+    epochs_filter_binned = binFilters(epochs)
 
 
     # Load in the skycell objects for each of the epochs
-    epochs_skycell_objects = loadSkycellObjects(epochs_filtered_binned)
+    epochs_skycell_objects = loadSkycellObjects(epochs_filter_binned)
     print(f'Skycell objects loaded. Beginning calibration(s)...\n')
 
 
     # Calculate magnitude offsets between skycell objects and reference stars
     offset_objects, outlier_objects = calSkycellOffsets(epochs_skycell_objects, [refcat_g, refcat_r, refcat_i, refcat_z, refcat_y, refcat_w])
-    print(f'Skycell offsets calibrated.\n')
+    print(f'\nSkycell offsets calibrated successfully.\n')
 
 
     # Plot offsets
@@ -303,39 +284,54 @@ if __name__ == '__main__':
         fig, ax = plt.subplots()
         fig.set_size_inches(11.7, 8.3, forward=True)
         plt.tight_layout()
-        
-        ax.set_xlim([15.0, 22.0])
-        ax.set_ylim([-0.6, +0.6])
-        ax.set_xlabel('Reference Star Mag', fontsize=24)
-        ax.set_ylabel('Mag Offset [Skycell - Reference]', fontsize=24)
-        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=16)
-        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=24)
 
+        # split out the data into xy axes
         x = [object['CAL.MAG_TRUE'] for object in skycellobjects]
         y = [object['CAL.MAG_OFFSET'] for object in skycellobjects]
+
+        # Plot data as a scatter
         ax.scatter(x, y, s=100, marker='x', color='black', zorder=1)
 
+        # calculate statistics for the offsets
         offest_mean = round(np.nanmean(y),4)
         offest_median = round(np.nanmedian(y),4)
         offest_stdev = round(np.nanstd(y),4)
         
-        ax.text(15.05, 0.03, 'Observed\nFainter', color='r', ha='left', va='bottom', fontsize=16)
+        # Set axes boundaries
+        ax.set_xlim([15.0, 22.0])
+        ax.set_xticks(np.arange(16, 21.5, 1))
+        y_upper_axis_lim = round(offest_mean+(4*offest_stdev), 1)
+        y_lower_axis_lim = round(offest_mean-(4*offest_stdev), 1)
+        y_axis_range = y_upper_axis_lim-y_lower_axis_lim
+        y_axis_ticksize = y_axis_range/5
+        ax.set_ylim([y_lower_axis_lim, y_upper_axis_lim + (y_axis_ticksize/4)])
+        ax.set_yticks(np.arange(y_lower_axis_lim + (y_axis_ticksize/2), y_upper_axis_lim + (y_axis_ticksize/2), y_axis_ticksize))
+
+        ax.set_xlabel('Reference Star Magnitude', fontsize=26)
+        ax.set_ylabel('Observed Magnitude Offset [Target - Reference]', fontsize=26)
+        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=24)
+        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=28)
+        
+        ax.text(15.05, +(y_axis_ticksize/3), 'Observed\nFainter', color='r', ha='left', va='center', fontsize=22)
         ax.axhline(linewidth=3, color='r')
-        ax.text(15.05, -0.03, 'Observed\nBrighter', color='r', ha='left', va='top', fontsize=16)
-        ax.text(18.50, 0.55, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='center', fontsize=16, bbox=dict(facecolor='grey', alpha=0.67))
+        ax.text(15.05, -(y_axis_ticksize/3), 'Observed\nBrighter', color='r', ha='left', va='center', fontsize=22)
+        ax.text(18.50, y_upper_axis_lim, f'Mean-offset: {offest_mean}    Median-offset: {offest_median}    Stdev-offset: {offest_stdev}', color='black', ha='center', va='top', fontsize=22, bbox=dict(facecolor='grey', alpha=0.67))
 
         plt.savefig(f'{curdir}/{mjdbin}_{filterbin}.png', bbox_inches='tight', dpi=600)
         print(f'Saved figure: {curdir}/{mjdbin}_{filterbin}.png.')
 
     
     
-        # Also write the more extreme offsets to a text file
-        if len(outlier_objects) > 0:
-          with open(f'{curdir}/{mjdbin}_{filterbin}_extreme_offsets.txt', 'w', newline='') as output_file:
-            keys = outlier_objects[0].keys()
+    # Also write the more extreme offsets to a text file
+    print(' ')
+    if len(outlier_objects) > 0:
+      for dictkey, dictrow in outlier_objects.items():
+        if len(dictrow) > 0:
+          with open(f'{curdir}/{dictkey}.txt', 'w', newline='') as output_file:
+            keys = dictrow[0].keys()
             dict_writer = csv.DictWriter(output_file, keys)
             dict_writer.writeheader()
-            dict_writer.writerows(outlier_objects)
-          print(f'Recorded outlier offsets: {curdir}/{mjdbin}_{filterbin}_extreme_offsets.txt.')
+            dict_writer.writerows(dictrow)
+          print(f'Recorded outlier offsets: {curdir}/{dictkey}.txt.')
 
-    print(f'\nFinished!\n')
+    print(f'\n\nFinished!\n')
