@@ -1,6 +1,6 @@
 # Minimal demonstration of using AstroPy specutils to read a plot reduced
 # spectra from Liverpool Telescope SPRAT level 2 reduced FITS files
-Version='1.1.0'
+Version='1.1.1'
 
 import sys
 import os
@@ -52,7 +52,7 @@ def PS1catalog(ra,dec):
             else:
               star[idx+2] = None
 
-        # Below is a bit of a hack to remove duplicates
+        # Below is a bit of a hack to remove duplicate star records
         catalog = SkyCoord(ra=star_data[:,0]*u.degree, dec=star_data[:,1]*u.degree)
         unique_star_data = []
         indices = np.arange(len(star_data))
@@ -156,6 +156,7 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
       with alive_bar(len(skycellobjects), title=f'Calibrating {mjdbin} {filterbin}-band: ') as bar:   
         for object in skycellobjects:
           for star in refstars[f]:
+            # Perform offset check if skycell object is within 0.1 arcsec of catalog reference star
             match_offset_deg = ((star[0] - object['PSF.RA'])**2 + (star[1] - object['PSF.DEC'])**2)**0.5
             if (match_offset_deg*3600 <= 0.1):
               object['CAL.MAG_TRUE'] = star[2]
@@ -163,9 +164,12 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
               calibrated_objects_list.append(object)
               if abs(object['CAL.MAG_OFFSET']) > 0.5:
                 extreme_offsets_outliers_list.append(object)
+              # Once a calibration has been performed move onto next skycell object.
               break
           bar()
       mag_offsets_list = [x['CAL.MAG_OFFSET'] for x in calibrated_objects_list]
+      # remove calbirated objects from the main list if they lie outside 4 stdev from the mean as these are typically galaxies that didn't get removed in the Star-galaxy separation check 
+      # record these extreme outliers in a text file for manual checking later
       mean_clip = np.nanmean(mag_offsets_list)
       sigma_clip = 4 * np.nanstd(mag_offsets_list)
       calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
