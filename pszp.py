@@ -184,8 +184,8 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pan-STARRS Zeropoint Correction Tool')
 
-    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', type=str, default = '2019qiz/epoch3')
-    parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', nargs=2, type=float, default = [71.65781, -10.22632])
+    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', type=str)
+    parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', nargs=2, type=float)
 
     args = parser.parse_args()
 
