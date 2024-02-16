@@ -20,14 +20,16 @@ plt.rcParams['figure.figsize']=8,6
 plt.rcParams['figure.autolayout']=True
 plt.rcParams['mathtext.fontset']='dejavuserif' 
 
-def PS1catalog(ra,dec):
-
+def PS1catalog(ra,dec,path):
+    
+    # radius is in degrees
+    # limiting to no more than 10,000 catalog sources with >25 detections
     queryurl = 'https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack.json?'
     queryurl += 'ra='+str(ra)
     queryurl += '&dec='+str(dec)
     queryurl += '&radius=0.164'
     queryurl += '&columns=[raStack,decStack,gPSFMag,rPSFMag,iPSFMag,zPSFMag,yPSFMag,rKronMag]'
-    queryurl += '&nDetections.gte=25&pagesize=10000'
+    queryurl += '&nDetections.gte=26&pagesize=10000'
 
     print('\nQuerying PS1 DR2 Stack for reference stars...\n')
     #print(queryurl)
@@ -68,7 +70,7 @@ def PS1catalog(ra,dec):
                     for k in indexmatch:
                         used.append(k)
 
-        np.savetxt('ref_stars.dat',unique_star_data,fmt='%.8f\t%.8f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f', header='ra\tdec\tg\tr\ti\tz\ty', comments='')
+        np.savetxt(path+'/ref_stars.dat',unique_star_data,fmt='%.8f\t%.8f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f', header='ra\tdec\tg\tr\ti\tz\ty', comments='')
         print('Success! Reference star file created: ref_stars.dat\n')
 
     else:
@@ -119,12 +121,10 @@ def loadSkycellObjects(epochs_skycell_objects):
             }
             # Rejecting object PSFs...
             # Where the calibration failed
-            # Where the calibration mag error is less than 3-sigma (mag_err <= 0.3)
-            # Where the calibration mag value is outside of the 16.5 - 20.5 range (Too bright and we will see saturation effects, too faint and we will see noise)
+            # Where the calibration mag value is outside of the 15.5 - 22.5 range (Too bright and we will see saturation effects, too faint and we will see noise)
             if not np.isnan(object['PSF.CAL_PSF_MAG']):
-              if object['PSF.INST_PSF_MAG_SIG'] <= 0.3:
-                if 15.5 <= object['PSF.CAL_PSF_MAG'] <= 22.5:
-                  skycells_objects_list.append(object)
+              if 15.5 <= object['PSF.CAL_PSF_MAG'] <= 22.5:
+                skycells_objects_list.append(object)
 
       epochs_skycell_objects[mjdbin][filterbin] = skycells_objects_list
 
@@ -168,10 +168,10 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
               break
           bar()
       mag_offsets_list = [x['CAL.MAG_OFFSET'] for x in calibrated_objects_list]
-      # remove calbirated objects from the main list if they lie outside 4 stdev from the mean as these are typically galaxies that didn't get removed in the Star-galaxy separation check 
+      # remove calbirated objects from the main list if they lie outside 3 stdev from the mean as these are typically galaxies that didn't get removed in the Star-galaxy separation check 
       # record these extreme outliers in a text file for manual checking later
       mean_clip = np.nanmean(mag_offsets_list)
-      sigma_clip = 4 * np.nanstd(mag_offsets_list)
+      sigma_clip = 3.03 * np.nanstd(mag_offsets_list)
       calibrated_clipped_objects_list = [object for object in calibrated_objects_list if (mean_clip - sigma_clip <= object['CAL.MAG_OFFSET'] <= mean_clip + sigma_clip)]
       epochs_skycell_objects[mjdbin][filterbin] = calibrated_clipped_objects_list
       extreme_offsets_key = str(mjdbin) + '_' + str(filterbin) +'_extreme_offsets'
@@ -184,8 +184,8 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pan-STARRS Zeropoint Correction Tool')
 
-    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', type=str)
-    parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', nargs=2, type=float)
+    parser.add_argument('--directory', '-d', dest='directory', help='Object directory inside Bundles containing the .cmf files. Mandatory.', type=str, default = '2019qiz/epoch3')
+    parser.add_argument('--coords', '-c', dest='coords', help='RA and DEC coordinates of object in degrees. Mandatory.', nargs=2, type=float, default = [71.65781, -10.22632])
 
     args = parser.parse_args()
 
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     print(' ')
 
 
-    # Set up thw working directory
+    # Set up the working directory
     try:
       os.chdir(os.getcwd() + '/Bundles/' + args.directory)
       print(f'\nWorking path: {os.getcwd()}/.\n')
@@ -218,12 +218,27 @@ if __name__ == '__main__':
       
 
     # Create catalog of Pan-STARRS reference stars using object coordinates
-    if not os.path.exists(os.getcwd() + '/ref_stars.dat'):
-      PS1catalog(coords[0],coords[1])
-      refcat = pd.read_csv("ref_stars.dat", sep="\t") 
+    # Save catalog in parent (backpath) directory, or the child (currpath) directory if the parent directory is "Bundles"
+    currpath = os.getcwd()
+    os.chdir('..')
+    backpath = os.getcwd()
+    os.chdir(currpath)
+    backpath_dirname = os.path.basename(backpath)
+    currpath_dirname = backpath_dirname + '/' + os.path.basename(currpath)
+    if backpath_dirname != 'Bundles':
+      if not os.path.exists(backpath + '/ref_stars.dat'):
+        PS1catalog(coords[0],coords[1],backpath)
+        refcat = pd.read_csv(backpath + "/ref_stars.dat", sep="\t") 
+      else:
+        print(f'\nReference star catalog in dir={backpath_dirname} already exists. If you wish to make a new one, delete the current "ref_stars.dat" file and rerun the command.\n')
+        refcat = pd.read_csv(backpath + "/ref_stars.dat", sep="\t")
     else:
-      print('\nReference star catalog already exists. If you wish to make a new one, delete the current "ref_stars.dat" file and rerun the command.\n')
-      refcat = pd.read_csv("ref_stars.dat", sep="\t")
+      if not os.path.exists(currpath + '/ref_stars.dat'):
+        PS1catalog(coords[0],coords[1],currpath)
+        refcat = pd.read_csv(currpath + "/ref_stars.dat", sep="\t") 
+      else:
+        print(f'\nReference star catalog in dir={currpath_dirname} already exists. If you wish to make a new one, delete the current "ref_stars.dat" file and rerun the command.\n')
+        refcat = pd.read_csv(currpath + "/ref_stars.dat", sep="\t")
 
 
     # Split the catalog into the separate filters for ease of use later
@@ -245,8 +260,9 @@ if __name__ == '__main__':
         refcat_z.append([row['ra'], row['dec'], row['z']])
       if not np.isnan(row['y']):
         refcat_y.append([row['ra'], row['dec'], row['y']])
-      if not np.isnan(row['g']) and not np.isnan(row['r']) and not np.isnan(row['i']):
-        psw = round((row['g'] + row['r'] + row['i']) / 3.0, 3)
+      # w-band conversion taken from Pan-STARRS colour transformations in Table 6. of https://iopscience.iop.org/article/10.1088/0004-637X/750/2/99
+      if not np.isnan(row['g']) and not np.isnan(row['r']):
+        psw = round(0.04*row['g'] + 0.96*row['r'] - 0.015, 3)
         refcat_w.append([row['ra'], row['dec'], psw])
 
     
