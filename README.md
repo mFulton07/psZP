@@ -12,7 +12,7 @@ git clone https://github.com/mFulton07/psZP.git
 <br /><br />
 ## Step 2: Creating the Python environment
 psZP requires some non-base python packages to operate.
-Create a new conda environment:
+Create a new conda environment. psZP was originally created in Python V3.7, but any Version 3.7+ should work:
 ```
 conda create --name pszp python=3.7 pip
 ```
