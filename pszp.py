@@ -1,6 +1,6 @@
 # Minimal demonstration of using AstroPy specutils to read a plot reduced
 # spectra from Liverpool Telescope SPRAT level 2 reduced FITS files
-Version='1.1.1'
+Version='1.2'
 
 import sys
 import os
@@ -179,6 +179,40 @@ def calSkycellOffsets(epochs_skycell_objects, refstars):
 
   return epochs_skycell_objects, epochs_extreme_offsets
 
+def writeFileExtremeOffsets(outlier_objects):
+  print(' ')
+  if len(outlier_objects) > 0:
+    for dictkey, dictrow in outlier_objects.items():
+      if len(dictrow) > 0:
+        with open(f'{curdir}/{dictkey}.txt', 'w', newline='') as output_file:
+          keys = dictrow[0].keys()
+          dict_writer = csv.DictWriter(output_file, keys)
+          dict_writer.writeheader()
+          dict_writer.writerows(dictrow)
+        print(f'Recorded outlier offsets: {curdir}/{dictkey}.txt.')
+  
+  return
+
+def writeFileAllOffsets(offset_collection, path):
+  if len(offset_collection) > 0:
+    for dictkey, dictrow in offset_collection.items():
+      if len(dictrow) > 0:
+        if not os.path.exists(path + '/offsets.txt'):
+          with open(f'{path}/offsets.txt', 'w', newline='') as output_file:
+            keys = dictrow[0].keys()
+            dict_writer = csv.DictWriter(output_file, keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(dictrow)
+            print(' ')
+            print(f'Recorded final offsets: {path}/offsets.txt.')
+        else:
+          with open(f'{path}/offsets.txt', 'a', newline='') as output_file:
+            keys = dictrow[0].keys()
+            dict_writer = csv.DictWriter(output_file, keys)
+            dict_writer.writerows(dictrow)
+            print(' ')
+            print(f'Appended final offsets: {path}/offsets.txt.')
+  return
 
 
 if __name__ == '__main__':
@@ -296,6 +330,7 @@ if __name__ == '__main__':
 
 
     # Plot offsets
+    offset_collection = {}
     print(f'\nPlotting offsets...\n')
     for mjdbin, filterlist in offset_objects.items():
       for filterbin, skycellobjects in filterlist.items():
@@ -330,7 +365,7 @@ if __name__ == '__main__':
         ax.set_xlabel('Reference Star Magnitude', fontsize=26)
         ax.set_ylabel('Observed Magnitude Offset [Target - Reference]', fontsize=26)
         ax.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=24)
-        ax.set_title(f'Difference Magnitude Offsets for: MJD {int(mjdbin)} {filterbin}-band', fontsize=28)
+        ax.set_title(f'Difference Magnitude Offsets for: MJD {mjdbin} {filterbin}-band', fontsize=28)
         
         ax.text(15.05, +(y_axis_ticksize/3), 'Observed\nFainter', color='r', ha='left', va='center', fontsize=22)
         ax.axhline(linewidth=3, color='r')
@@ -340,18 +375,26 @@ if __name__ == '__main__':
         plt.savefig(f'{curdir}/{mjdbin}_{filterbin}.png', bbox_inches='tight', dpi=600)
         print(f'Saved figure: {curdir}/{mjdbin}_{filterbin}.png.')
 
+        #write offset analysis to offset collection object
+        object_id = 'skycell' + '_' + str(mjdbin) + '_' + str(filterbin)
+        offset_collection[object_id] = [{
+          'subdir' : currpath_dirname,
+          'mjd' : mjdbin,
+          'filter' : filterbin,
+          'offset_mean' : offest_mean,
+          'offset_median' : offest_median,
+          'offset_stdev' : offest_stdev
+        }]
+
     
     
     # Also write the more extreme offsets to a text file
-    print(' ')
-    if len(outlier_objects) > 0:
-      for dictkey, dictrow in outlier_objects.items():
-        if len(dictrow) > 0:
-          with open(f'{curdir}/{dictkey}.txt', 'w', newline='') as output_file:
-            keys = dictrow[0].keys()
-            dict_writer = csv.DictWriter(output_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(dictrow)
-          print(f'Recorded outlier offsets: {curdir}/{dictkey}.txt.')
+    writeFileExtremeOffsets(outlier_objects)
+
+    # Also write the more extreme offsets to a text file
+    if backpath_dirname != 'Bundles':
+      writeFileAllOffsets(offset_collection, backpath)
+    else:
+      writeFileAllOffsets(offset_collection, currpath)
 
     print(f'\n\nFinished!\n')
