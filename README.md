@@ -40,7 +40,7 @@ Example:
 ```
 conda activate pszp
 cd  #DESIRED_DIRECTORY#/psZP/
-python pszp.py -d MyBundle/YYYY-MM-DD -c 123.456789 -12.3456789
+python pszp.py -d MyBundle/AT2020abc/YYYY-MM-DD -c 123.456789 -12.3456789
 ...
 ```
 Note that psZP can only accept one data bundle sub-directory at a time.
