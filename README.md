@@ -29,7 +29,7 @@ csv
 ```
 <br /><br />
 ## Step 3: Add your data bundles to the "psZP/Bundles" directory
-Your bundles should be in their own sub-directory and contain the _.cmf skycell image_ files. The _.smf image_ files are not required as all the necessary info can be found within the _.cmf image_ files. The _.dat reference stars_ file is no longer required as the code will automatically query PS1-DR2 Stack Archive for reference stars in a 10 arcmin (0.164 degrees) radius of the target position. Note that the bundles can be a mix of filters, but they should not be a mix of MJDs. Multiple MJDs should be partitioned into further sub-sub-directories, depending on the images that have been used to produce the stacked difference images or flux.
+Your bundles should be in their own sub-directory and contain the _.cmf skycell image_ files. The _.smf image_ files are not required as all the necessary info can be found within the _.cmf image_ files. The _.dat reference stars_ file is no longer required as the code will automatically query PS1-DR2 Stack Archive for reference stars in a 10 arcmin (0.164 degrees) radius of the target position. Note that the bundles can be a mix of filters, but typically should not be a mix of multiple nights (unless inter-night stacking is involved). Different nights should be partitioned into further sub-sub-directories, depending on the images that have been used to produce the stacked difference images or flux.
 <br /><br /><br />
 ## Step 4: Run psZP
 On a terminal:
